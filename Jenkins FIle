@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'your-aws-region'
+        APP_NAME = 'your-codedeploy-application-name'
+        DEPLOYMENT_GROUP = 'your-codedeploy-deployment-group'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    // Your build steps go here
+                    // For example: mvn clean package
+                }
+            }
+        }
+
+        stage('Deploy to CodeDeploy') {
+            steps {
+                script {
+                    withAWS(region: AWS_REGION, credentials: 'your-aws-credentials-id') {
+                        // Assuming you have an AWS CodeDeploy deployment group set up
+                        def deployment = codedeployCreateDeployment(
+                            applicationName: APP_NAME,
+                            deploymentGroupName: DEPLOYMENT_GROUP,
+                            revision: [
+                                revisionType: 'GitHub',
+                                gitHubLocation: [
+                                    commitId: env.GIT_COMMIT,
+                                    repository: 'your-github-repository',
+                                    targetCommitish: 'master'
+                                ]
+                            ]
+                        )
+
+                        echo "Deployment created with ID: ${deployment.deploymentId}"
+
+                        waitForDeployment deploymentId: deployment.deploymentId
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Cleanup steps or notifications can be added here
+        }
+    }
+}
